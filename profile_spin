@@ -1,0 +1,386 @@
+Total: 667 samples
+     474  71.1%  71.1%      667 100.0% thr_func
+     153  22.9%  94.0%      153  22.9% __strcmp_sse42
+      30   4.5%  98.5%      135  20.2% SortedList_insert
+       9   1.3%  99.9%       58   8.7% SortedList_lookup
+       1   0.1% 100.0%        1   0.1% _init
+       0   0.0% 100.0%      667 100.0% __clone
+       0   0.0% 100.0%      667 100.0% start_thread
+ROUTINE ====================== thr_func in /u/cs/ugrad/muslim/CS111/test/lab2_list.c
+   474    667 Total samples (flat / cumulative)
+     .      .   61: 	pthread_mutex_t *thr_lock;
+     .      .   62: 	SortedListElement_t* thr_list_head;
+     .      .   63: 	int *thr_slock;
+     .      .   64: } arg_struct;
+     .      .   65: 
+---
+     .      .   66: void *thr_func(void *arg){
+     .      .   67:   struct arg_struct *data = arg;
+     .      .   68:   long long finish = data->start + num_iterations;
+     .      .   69:   mutex_time[data->thread_num] = 0;
+     .      .   70:   /* add elements */
+     .      .   71:   if (opt_mutex){
+     .      .   72:     for (int i = data->start; i < finish; i++){
+     .      .   73: 
+     .      .   74:       if (lists){
+     .      .   75: 		int list_num = hash(elements[i].key)%lists_size;
+     .      .   76: 		data->thr_list_head = &lists_head[list_num];
+     .      .   77: 		data->thr_lock = &lists_mlock[list_num];
+     .      .   78:       }
+     .      .   79:       else{
+     .      .   80: 		data->thr_lock = &lock;
+     .      .   81: 		data->thr_list_head = list_head;
+     .      .   82:       }
+     .      .   83:       
+     .      .   84:       clock_gettime(CLOCK_MONOTONIC, &mutex_clock_start[data->thread_num]);
+     .      .   85: 	  if (pthread_mutex_lock(data->thr_lock)) {
+     .      .   86: 		  perror("Thread couldn't acquire lock!");
+     .      .   87: 		  exit(1);
+     .      .   88: 	  }
+     .      .   89:       clock_gettime(CLOCK_MONOTONIC, &mutex_clock_end[data->thread_num]);
+     .      .   90:       SortedList_insert(data->thr_list_head, &elements[i]);
+     .      .   91: 	  pthread_mutex_unlock(data->thr_lock);
+     .      .   92:       num++;
+     .      .   93: 	  mutex_time[data->thread_num] += ( (mutex_clock_end[data->thread_num].tv_sec - mutex_clock_start[data->thread_num].tv_sec) * 1000000000) + mutex_clock_end[data->thread_num].tv_nsec - mutex_clock_start[data->thread_num].tv_nsec;
+     .      .   94:     }
+     .      .   95:   }
+     .      .   96:   else if (opt_spin){
+     .      .   97:     for (int i = data->start; i < finish; i++){
+     .      .   98: 
+     .      .   99: 		if (lists) {
+     .      .  100: 			int list_num = hash(elements[i].key) % lists_size;
+     .      .  101: 			data->thr_list_head = &lists_head[list_num];
+     .      .  102: 			data->thr_slock = &lists_slock[list_num];
+     .      .  103: 		}
+     .      .  104: 		else {
+     .      .  105: 			data->thr_slock = &spin_lock;
+     .      .  106: 			data->thr_list_head = list_head;
+     .      .  107: 		}
+     .      .  108: 
+   430    430  109:       while (__sync_lock_test_and_set(data->thr_slock,1));
+     .    135  110:       SortedList_insert(data->thr_list_head, &elements[i]);
+     .      .  111:       __sync_lock_release(data->thr_slock);
+     .      .  112:     }
+     .      .  113:   }
+     .      .  114:   else {
+     .      .  115:     /* insert without sync */
+     .      .  116:     for (int i = data->start; i < finish; i++){
+     .      .  117:       if (lists){
+     .      .  118:         data->thr_list_head = &lists_head[hash(elements[i].key)%lists_size];
+     .      .  119:       }
+     .      .  120: 	  else {
+     .      .  121: 		  data->thr_list_head = list_head;
+     .      .  122: 	  }
+     .      .  123:       SortedList_insert(data->thr_list_head, &elements[i]);
+     .      .  124:     }
+     .      .  125:   }
+     .      .  126: 
+     .      .  127:   
+     .      .  128: 
+     .      .  129:   /* get list length */
+     .      .  130:   if (lists) {
+     .      .  131: 	  int thr_list_length = 0;
+     .      .  132: 	  for (int i = 0; i < lists_size; i++) {
+     .      .  133: 		  thr_list_length += SortedList_length(&lists_head[i]);
+     .      .  134: 	  }
+     .      .  135: 	  list_length = thr_list_length;
+     .      .  136:   }
+     .      .  137:   else {
+     .      .  138: 	  list_length = SortedList_length(list_head);
+     .      .  139:   }
+     .      .  140: 
+     .      .  141:   /*if (opt_mutex){
+     .      .  142: 	  if (lists) {
+     .      .  143: 		  for (int i = 0; i < lists_size; i++) {
+     .      .  144: 			  list_length += SortedList_length(&lists_head[i]);
+     .      .  145: 		  }
+     .      .  146: 	  }
+     .      .  147: 	  else {
+     .      .  148: 		  //clock_gettime(CLOCK_MONOTONIC, &mutex_clock_start[data->thread_num]);
+     .      .  149: 		  //pthread_mutex_lock(data->thr_lock);
+     .      .  150: 		  //clock_gettime(CLOCK_MONOTONIC, &mutex_clock_end[data->thread_num]);
+     .      .  151: 		  list_length = SortedList_length(data->thr_list_head);
+     .      .  152: 		  //pthread_mutex_unlock(data->thr_lock);
+     .      .  153: 	  }
+     .      .  154:     
+     .      .  155:   }
+     .      .  156:   else if (opt_spin){
+     .      .  157: 	  if (lists) {
+     .      .  158: 		  for (int i )
+     .      .  159: 	  }
+     .      .  160:     while (__sync_lock_test_and_set(&spin_lock,1));
+     .      .  161:     list_length = SortedList_length(list_head);
+     .      .  162:     __sync_lock_release(&spin_lock);
+     .      .  163:   }
+     .      .  164:   else {
+     .      .  165:     
+     .      .  166:     list_length = SortedList_length(list_head);
+     .      .  167:   }
+     .      .  168: 
+     .      .  169:   //mutex_time[data->thread_num] += ( (mutex_clock_end[data->thread_num].tv_sec - mutex_clock_start[data-\
+     .      .  170: >thread_num].tv_sec) * 1000000000) + mutex_clock_end[data->thread_num].tv_nsec - mutex_clock_start[dat\
+     .      .  171: a->thread_num].tv_nsec;*/
+     .      .  172:   
+     .      .  173:   SortedListElement_t* element_lookup;
+     .      .  174:   /* look up and delete elements */
+     .      .  175:   if (opt_mutex){
+     .      .  176:     for (int i = data->start; i < finish; i++){
+     .      .  177: 
+     .      .  178: 		if (lists) {
+     .      .  179: 			int list_num = hash(elements[i].key) % lists_size;
+     .      .  180: 			data->thr_list_head = &lists_head[list_num];
+     .      .  181: 			data->thr_lock = &lists_mlock[list_num];
+     .      .  182: 		}
+     .      .  183:       
+     .      .  184:       clock_gettime(CLOCK_MONOTONIC, &mutex_clock_start[data->thread_num]);
+     .      .  185: 	  pthread_mutex_lock(data->thr_lock);
+     .      .  186:       clock_gettime(CLOCK_MONOTONIC, &mutex_clock_end[data->thread_num]);
+     .      .  187:       element_lookup = SortedList_lookup(data->thr_list_head, elements[i].key);
+     .      .  188:       if (element_lookup == NULL){
+     .      .  189:         perror("ELEMENT DOES NOT EXIST\n");
+     .      .  190: 		exit(1);
+     .      .  191:       }
+     .      .  192:       else if (SortedList_delete(element_lookup) == -1){
+     .      .  193:         perror("ERROR DELETING ELEMENT\n");
+     .      .  194: 		exit(1);
+     .      .  195:       };
+     .      .  196: 	  pthread_mutex_unlock(data->thr_lock);
+     .      .  197: 	mutex_time[data->thread_num] += ( (mutex_clock_end[data->thread_num].tv_sec - mutex_clock_start[data-\
+     .      .  198: >thread_num].tv_sec) * 1000000000) + mutex_clock_end[data->thread_num].tv_nsec - mutex_clock_start[dat\
+     .      .  199: a->thread_num].tv_nsec;
+     .      .  200:     }
+     .      .  201:   }
+     .      .  202:   else if (opt_spin){
+     .      .  203:     for (int i = data->start; i < finish; i++){
+     .      .  204: 		if (lists) {
+     .      .  205: 			int list_num = hash(elements[i].key) % lists_size;
+     .      .  206: 			data->thr_list_head = &lists_head[list_num];
+     .      .  207: 			data->thr_slock = &lists_slock[list_num];
+     .      .  208: 		}
+     .      .  209:       
+    44     44  210: 		while (__sync_lock_test_and_set(data->thr_slock, 1));
+     .     58  211: 		element_lookup = SortedList_lookup(data->thr_list_head, elements[i].key);
+     .      .  212: 		if (element_lookup == NULL){
+     .      .  213: 			perror("\nELEMENT DOES NOT EXIST\n");
+     .      .  214: 		};
+     .      .  215: 		if (SortedList_delete(element_lookup) == -1){
+     .      .  216: 			perror("\nERROR DELETING ELEMENT\n");
+     .      .  217: 		};
+     .      .  218: 		__sync_lock_release(data->thr_slock);
+     .      .  219:     }
+     .      .  220:   }
+     .      .  221:   else {
+     .      .  222:     for (int i = data->start; i < finish; i++){
+     .      .  223: 
+     .      .  224:       if (lists){
+     .      .  225:         list_head = &lists_head[hash(elements[i].key)%lists_size];
+     .      .  226:       }
+     .      .  227:       
+     .      .  228:       element_lookup = SortedList_lookup(list_head, elements[i].key);
+     .      .  229:       if (element_lookup == NULL){
+     .      .  230:         perror("\nELEMENT DOES NOT EXIST\n");
+     .      .  231:       };
+     .      .  232:       if (SortedList_delete(element_lookup) == -1){
+     .      .  233:         perror("\nERROR DELETING ELEMENT\n");
+     .      .  234:       };
+     .      .  235:     }
+     .      .  236:   }
+     .      .  237: 
+     .      .  238:   
+     .      .  239:    
+     .      .  240: }
+---
+     .      .  241: 
+     .      .  242: int main(int argc, char * argv[]){
+     .      .  243: 
+     .      .  244:   static struct option long_options[] = {
+     .      .  245:     {"threads", required_argument, 0, 'a'},
+ROUTINE ====================== thr_func in /u/cs/ugrad/muslim/CS111/test/lab2_list.c
+   474    667 Total samples (flat / cumulative)
+     .      .   61: 	pthread_mutex_t *thr_lock;
+     .      .   62: 	SortedListElement_t* thr_list_head;
+     .      .   63: 	int *thr_slock;
+     .      .   64: } arg_struct;
+     .      .   65: 
+---
+     .      .   66: void *thr_func(void *arg){
+     .      .   67:   struct arg_struct *data = arg;
+     .      .   68:   long long finish = data->start + num_iterations;
+     .      .   69:   mutex_time[data->thread_num] = 0;
+     .      .   70:   /* add elements */
+     .      .   71:   if (opt_mutex){
+     .      .   72:     for (int i = data->start; i < finish; i++){
+     .      .   73: 
+     .      .   74:       if (lists){
+     .      .   75: 		int list_num = hash(elements[i].key)%lists_size;
+     .      .   76: 		data->thr_list_head = &lists_head[list_num];
+     .      .   77: 		data->thr_lock = &lists_mlock[list_num];
+     .      .   78:       }
+     .      .   79:       else{
+     .      .   80: 		data->thr_lock = &lock;
+     .      .   81: 		data->thr_list_head = list_head;
+     .      .   82:       }
+     .      .   83:       
+     .      .   84:       clock_gettime(CLOCK_MONOTONIC, &mutex_clock_start[data->thread_num]);
+     .      .   85: 	  if (pthread_mutex_lock(data->thr_lock)) {
+     .      .   86: 		  perror("Thread couldn't acquire lock!");
+     .      .   87: 		  exit(1);
+     .      .   88: 	  }
+     .      .   89:       clock_gettime(CLOCK_MONOTONIC, &mutex_clock_end[data->thread_num]);
+     .      .   90:       SortedList_insert(data->thr_list_head, &elements[i]);
+     .      .   91: 	  pthread_mutex_unlock(data->thr_lock);
+     .      .   92:       num++;
+     .      .   93: 	  mutex_time[data->thread_num] += ( (mutex_clock_end[data->thread_num].tv_sec - mutex_clock_start[data->thread_num].tv_sec) * 1000000000) + mutex_clock_end[data->thread_num].tv_nsec - mutex_clock_start[data->thread_num].tv_nsec;
+     .      .   94:     }
+     .      .   95:   }
+     .      .   96:   else if (opt_spin){
+     .      .   97:     for (int i = data->start; i < finish; i++){
+     .      .   98: 
+     .      .   99: 		if (lists) {
+     .      .  100: 			int list_num = hash(elements[i].key) % lists_size;
+     .      .  101: 			data->thr_list_head = &lists_head[list_num];
+     .      .  102: 			data->thr_slock = &lists_slock[list_num];
+     .      .  103: 		}
+     .      .  104: 		else {
+     .      .  105: 			data->thr_slock = &spin_lock;
+     .      .  106: 			data->thr_list_head = list_head;
+     .      .  107: 		}
+     .      .  108: 
+   430    430  109:       while (__sync_lock_test_and_set(data->thr_slock,1));
+     .    135  110:       SortedList_insert(data->thr_list_head, &elements[i]);
+     .      .  111:       __sync_lock_release(data->thr_slock);
+     .      .  112:     }
+     .      .  113:   }
+     .      .  114:   else {
+     .      .  115:     /* insert without sync */
+     .      .  116:     for (int i = data->start; i < finish; i++){
+     .      .  117:       if (lists){
+     .      .  118:         data->thr_list_head = &lists_head[hash(elements[i].key)%lists_size];
+     .      .  119:       }
+     .      .  120: 	  else {
+     .      .  121: 		  data->thr_list_head = list_head;
+     .      .  122: 	  }
+     .      .  123:       SortedList_insert(data->thr_list_head, &elements[i]);
+     .      .  124:     }
+     .      .  125:   }
+     .      .  126: 
+     .      .  127:   
+     .      .  128: 
+     .      .  129:   /* get list length */
+     .      .  130:   if (lists) {
+     .      .  131: 	  int thr_list_length = 0;
+     .      .  132: 	  for (int i = 0; i < lists_size; i++) {
+     .      .  133: 		  thr_list_length += SortedList_length(&lists_head[i]);
+     .      .  134: 	  }
+     .      .  135: 	  list_length = thr_list_length;
+     .      .  136:   }
+     .      .  137:   else {
+     .      .  138: 	  list_length = SortedList_length(list_head);
+     .      .  139:   }
+     .      .  140: 
+     .      .  141:   /*if (opt_mutex){
+     .      .  142: 	  if (lists) {
+     .      .  143: 		  for (int i = 0; i < lists_size; i++) {
+     .      .  144: 			  list_length += SortedList_length(&lists_head[i]);
+     .      .  145: 		  }
+     .      .  146: 	  }
+     .      .  147: 	  else {
+     .      .  148: 		  //clock_gettime(CLOCK_MONOTONIC, &mutex_clock_start[data->thread_num]);
+     .      .  149: 		  //pthread_mutex_lock(data->thr_lock);
+     .      .  150: 		  //clock_gettime(CLOCK_MONOTONIC, &mutex_clock_end[data->thread_num]);
+     .      .  151: 		  list_length = SortedList_length(data->thr_list_head);
+     .      .  152: 		  //pthread_mutex_unlock(data->thr_lock);
+     .      .  153: 	  }
+     .      .  154:     
+     .      .  155:   }
+     .      .  156:   else if (opt_spin){
+     .      .  157: 	  if (lists) {
+     .      .  158: 		  for (int i )
+     .      .  159: 	  }
+     .      .  160:     while (__sync_lock_test_and_set(&spin_lock,1));
+     .      .  161:     list_length = SortedList_length(list_head);
+     .      .  162:     __sync_lock_release(&spin_lock);
+     .      .  163:   }
+     .      .  164:   else {
+     .      .  165:     
+     .      .  166:     list_length = SortedList_length(list_head);
+     .      .  167:   }
+     .      .  168: 
+     .      .  169:   //mutex_time[data->thread_num] += ( (mutex_clock_end[data->thread_num].tv_sec - mutex_clock_start[data-\
+     .      .  170: >thread_num].tv_sec) * 1000000000) + mutex_clock_end[data->thread_num].tv_nsec - mutex_clock_start[dat\
+     .      .  171: a->thread_num].tv_nsec;*/
+     .      .  172:   
+     .      .  173:   SortedListElement_t* element_lookup;
+     .      .  174:   /* look up and delete elements */
+     .      .  175:   if (opt_mutex){
+     .      .  176:     for (int i = data->start; i < finish; i++){
+     .      .  177: 
+     .      .  178: 		if (lists) {
+     .      .  179: 			int list_num = hash(elements[i].key) % lists_size;
+     .      .  180: 			data->thr_list_head = &lists_head[list_num];
+     .      .  181: 			data->thr_lock = &lists_mlock[list_num];
+     .      .  182: 		}
+     .      .  183:       
+     .      .  184:       clock_gettime(CLOCK_MONOTONIC, &mutex_clock_start[data->thread_num]);
+     .      .  185: 	  pthread_mutex_lock(data->thr_lock);
+     .      .  186:       clock_gettime(CLOCK_MONOTONIC, &mutex_clock_end[data->thread_num]);
+     .      .  187:       element_lookup = SortedList_lookup(data->thr_list_head, elements[i].key);
+     .      .  188:       if (element_lookup == NULL){
+     .      .  189:         perror("ELEMENT DOES NOT EXIST\n");
+     .      .  190: 		exit(1);
+     .      .  191:       }
+     .      .  192:       else if (SortedList_delete(element_lookup) == -1){
+     .      .  193:         perror("ERROR DELETING ELEMENT\n");
+     .      .  194: 		exit(1);
+     .      .  195:       };
+     .      .  196: 	  pthread_mutex_unlock(data->thr_lock);
+     .      .  197: 	mutex_time[data->thread_num] += ( (mutex_clock_end[data->thread_num].tv_sec - mutex_clock_start[data-\
+     .      .  198: >thread_num].tv_sec) * 1000000000) + mutex_clock_end[data->thread_num].tv_nsec - mutex_clock_start[dat\
+     .      .  199: a->thread_num].tv_nsec;
+     .      .  200:     }
+     .      .  201:   }
+     .      .  202:   else if (opt_spin){
+     .      .  203:     for (int i = data->start; i < finish; i++){
+     .      .  204: 		if (lists) {
+     .      .  205: 			int list_num = hash(elements[i].key) % lists_size;
+     .      .  206: 			data->thr_list_head = &lists_head[list_num];
+     .      .  207: 			data->thr_slock = &lists_slock[list_num];
+     .      .  208: 		}
+     .      .  209:       
+    44     44  210: 		while (__sync_lock_test_and_set(data->thr_slock, 1));
+     .     58  211: 		element_lookup = SortedList_lookup(data->thr_list_head, elements[i].key);
+     .      .  212: 		if (element_lookup == NULL){
+     .      .  213: 			perror("\nELEMENT DOES NOT EXIST\n");
+     .      .  214: 		};
+     .      .  215: 		if (SortedList_delete(element_lookup) == -1){
+     .      .  216: 			perror("\nERROR DELETING ELEMENT\n");
+     .      .  217: 		};
+     .      .  218: 		__sync_lock_release(data->thr_slock);
+     .      .  219:     }
+     .      .  220:   }
+     .      .  221:   else {
+     .      .  222:     for (int i = data->start; i < finish; i++){
+     .      .  223: 
+     .      .  224:       if (lists){
+     .      .  225:         list_head = &lists_head[hash(elements[i].key)%lists_size];
+     .      .  226:       }
+     .      .  227:       
+     .      .  228:       element_lookup = SortedList_lookup(list_head, elements[i].key);
+     .      .  229:       if (element_lookup == NULL){
+     .      .  230:         perror("\nELEMENT DOES NOT EXIST\n");
+     .      .  231:       };
+     .      .  232:       if (SortedList_delete(element_lookup) == -1){
+     .      .  233:         perror("\nERROR DELETING ELEMENT\n");
+     .      .  234:       };
+     .      .  235:     }
+     .      .  236:   }
+     .      .  237: 
+     .      .  238:   
+     .      .  239:    
+     .      .  240: }
+---
+     .      .  241: 
+     .      .  242: int main(int argc, char * argv[]){
+     .      .  243: 
+     .      .  244:   static struct option long_options[] = {
+     .      .  245:     {"threads", required_argument, 0, 'a'},
