@@ -2,10 +2,10 @@ README - Lock Granularity and Performance
 
 Objectives:
 	1. Demonstrate the ability to recognize bottlenecks on large data structures
-	2. Experience with partitioning a serialized resource to improve parallelism
-	3. Experience with basic performance measurement and instrumentation
-	4. Experience with execution profiling
-	5. Experience with finding, installing, and exploiting new development tools
+	2. Experience partitioning a serialized resource to improve parallelism
+	3. Experience basic performance measurements and instrumentation
+	4. Experience execution profiling
+	5. Experience finding, installing, and exploiting new development tools
 
 Included files:
 SortedList.h - header file containing interfaces for linked list operations including insert, delete, lookup, and length
